@@ -1,0 +1,70 @@
+services:
+  api:
+    container_name: api
+    build: ./api
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - backend
+      - frontend
+
+  postgres:
+    image: postgres:14
+    secrets:
+      - db_password
+      - db_user
+      - db_database
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    environment:
+      POSTGRES_USER: /run/secrets/db_user
+      POSTGRES_PASSWORD: /run/secrets/db_password
+      POSTGRES_DB: /run/secrets/db_database
+    networks:
+      - backend
+
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    networks:
+      - frontend
+
+  grafana:
+    image: grafana/grafana
+    secrets:
+      - db_password
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/db_password
+    volumes:
+      - grafana-storage:/var/lib/grafana
+    networks:
+      - frontend
+
+secrets:
+  db_password:
+    file: ./db/password.txt
+  db_user:
+    file: ./db/user.txt
+  db_database:
+    file: ./db/database.txt
+
+volumes:
+  pgdata:
+  grafana-storage:
+
+networks:
+  frontend:
+  backend:
